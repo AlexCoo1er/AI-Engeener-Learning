@@ -1,0 +1,2 @@
+- [ ] 1. Resolve expired/revoked rules and request identity for idempotency with the owner.
+- [ ] 2. Rebase the delta on the final main specs before any implementation.

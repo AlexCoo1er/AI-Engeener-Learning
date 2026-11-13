@@ -1,0 +1,2 @@
+- [x] 1. Validate on starter baseline.
+- [x] 2. Archive in a disposable copy and check scenarios retained.

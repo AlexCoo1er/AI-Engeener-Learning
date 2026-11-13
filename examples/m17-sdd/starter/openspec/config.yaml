@@ -1,0 +1,7 @@
+schema: spec-driven
+context: |
+  Local in-memory Access Requests teaching service, Go or Java 21.
+  Demo identities X-User alice/bob employees, carol approver. Never production IAM.
+  Resources handbook/runbook. Stable capabilities access-requests/access-decisions/access-grants.
+  Preserve authorization and repeat semantics in every full MODIFIED block.
+  Separate request decisions from active grant state. Use controlled clocks in tests.

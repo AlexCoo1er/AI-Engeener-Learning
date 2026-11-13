@@ -1,0 +1,5 @@
+- [x] 1. Сверить полные MODIFIED с результатом temporary-access.
+- [x] 2. Проверить роли, self revoke, blank reason и состояния pending/rejected.
+- [x] 3. Проверить повтор той же/иной причины и отсутствие revival после approve.
+- [x] 4. Проверить несколько grants, expired и legacy indefinite revoke.
+- [x] 5. Запустить тесты и strict validation, синхронизировать и архивировать.

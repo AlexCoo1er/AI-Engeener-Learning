@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сквозные проекты · AI engineer</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+.wk-btns { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.wk-btns .btn { font: 12.5px var(--mono); padding: 3px 8px; min-width: 2.6em; }
+.wk-btns .btn.sel { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wk-info { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; margin-top: 10px; background: var(--bg-soft); font-size: 14.5px; }
+.wk-info h4 { margin: 0 0 6px; }
+.wk-info ul { margin: 4px 0; padding-left: 1.2em; }
+.wk-info .dod { border-left: 3px solid var(--ok); padding-left: 8px; margin-top: 8px; }
+pre.tree { font-size: 13px; line-height: 1.45; }
+.proj-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.stage { margin: 10px 0; }
+.stage h4 { margin: 0 0 4px; font-size: 15px; }
+.stage label.check { font-size: 14.5px; margin: 3px 0; }
+</style>
+</head>
+<body data-module="projects">
+<main class="content">
+  <div class="module-hero">
+    <div class="eyebrow">Практика</div>
+    <h1>Сквозные проекты</h1>
+    <p class="lead">Четыре проекта, которые складываются в одну систему и одно портфолио: RAG по документации на <span data-only="go">Go</span><span data-only="java">Java</span> и pgvector, eval-набор с CI, агент с MCP-сервером, guardrails и red-team, продакшн-обвязка с трейсингом, fallback, кэшем, SLO и дашбордом стоимости. План на 20 недель, привязанный к модулям курса, с критериями готовности и тем, что рассказывать на собеседовании. Последние три недели — капстоун, который доводит эту систему до продакшн-агента.</p>
+    <div class="meta-row"><span class="chip">≈ 20 недель × 8–10 часов вместе с модулями</span><span class="chip"><span data-only="go">Go</span><span data-only="java">Java</span> + Python + SQL</span><span class="chip">2 интерактивные визуализации + 4 схемы</span></div>
+  </div>
+
+  <h2 id="overview">Итоговая система</h2>
+  <p>Идея простая: вместо четырёх учебных репозиториев — одна система, которая растёт неделя за неделей. К концу у вас есть сервис, который отвечает на вопросы по документации с цитатами, измеряет своё качество на каждом PR, доступен агентам через MCP, проверен набором атак и выглядит как продакшн: трейсы, fallback, кэш, SLO, откат флагом, дашборд стоимости. Именно такой проект проходит deep dive на собеседовании: в нём есть решения, цифры и ошибки. В <a href="m15.html">капстоуне (модуль 15)</a> эта же система становится продакшн-агентом с приёмкой по метрикам и защитой design doc.</p>
+  <p><b>Выбор корпуса.</b> Возьмите документацию, которую вы знаете и которая публично доступна: <span data-only="go">документация Go (go.dev/doc и спецификация)</span><span data-only="java">документация Java и Spring (docs.oracle.com, спецификация языка, Spring Boot Reference)</span>, Kubernetes, PostgreSQL или внутренняя документация вашей компании, если её можно использовать. Нужно 500–5 000 страниц: достаточно, чтобы retrieval был нетривиальным, и мало, чтобы индексация стоила копейки.</p>
+
+  <div class="viz" id="viz-final">
+    <p class="viz-title">Архитектура итоговой системы</p>
+    <p class="viz-sub">Цвет рамки — проект, в котором компонент появляется: <span style="color:var(--accent)">A · RAG</span>, <span style="color:var(--warn)">B · evals</span>, <span style="color:var(--violet)">C · агент, MCP и безопасность</span>, <span style="color:var(--teal)">D · продакшн</span>.</p>
+    <svg id="svg-final" viewBox="0 0 720 400" role="img" aria-label="Схема итоговой системы: ingest с PII-редакцией, Postgres с pgvector, API с guardrails, MCP-сервер, evals и red-team, кэш, LLM-шлюз с флагами и наблюдаемость с SLO"></svg>
+  </div>
+
+  <table>
+    <tr><th>Проект</th><th>Недели</th><th>Модули курса</th><th>Результат</th></tr>
+    <tr><td><a href="#proj-rag">A · RAG на <span data-only="go">Go</span><span data-only="java">Java</span> + pgvector</a></td><td>1–6, 14</td><td>0–5, 11</td><td>Сервис <code>/ask</code> со стримингом и цитатами; ingestion с PII-редакцией и версиями корпуса</td></tr>
+    <tr><td><a href="#proj-evals">B · Eval-набор</a></td><td>6, 10</td><td>4, 5, 8</td><td>Golden set, judge с κ, bootstrap-гейт в CI</td></tr>
+    <tr><td><a href="#proj-mcp">C · Агент, MCP и безопасность</a></td><td>7–9, 11</td><td>6, 7, 8</td><td>MCP-сервер на <span data-only="go">Go</span><span data-only="java">Java</span>, свой агент с компакцией, guardrails, red-team, eval по траекториям</td></tr>
+    <tr><td><a href="#proj-prod">D · Продакшнизация</a></td><td>11–13</td><td>9, 10</td><td>Трейсы, шлюз, fallback, кэш, SLO, флаги, дрейф, дашборд стоимости</td></tr>
+    <tr><td><a href="#readme">Финиш</a></td><td>15–17</td><td>12, 13, 14</td><td>README, демо, нагрузочный тест, ADR и постмортем, рассказ для собеседования</td></tr>
+    <tr><td><a href="m15.html">Капстоун</a></td><td>18–20</td><td>15</td><td>Продакшн-агент с приёмкой по метрикам и защитой design doc</td></tr>
+  </table>
+
+  <div class="callout tip"><span class="title">Дополнение: SDD перед большой практикой</span><p><a href="m17.html">Модуль 17 «SDD и OpenSpec»</a> рекомендуется после модуля 4. Его теория и локальный проект Access Requests добавляют 12–14 часов (примерно 1–2 недели) к показанному ниже базовому плану на 20 недель; с ними маршрут занимает ориентировочно 21–22 недели. Номера недель диаграммы относятся к базовому плану.</p><p>После лабораторной проведите одно небольшое изменение проекта A через полный цикл: например, явный отказ при отсутствии доступных источников. Зафиксируйте baseline, proposal и дельту, согласуйте критерии, реализуйте, проверьте тестами и evals, обновите основные спеки и архивируйте change. <a href="m17.html#practice">Критерии и материалы практики</a>.</p></div>
+  <h2 id="gantt">План по неделям</h2>
+  <p>Нагрузка — 8–10 часов в неделю вместе с чтением модулей: задания проектов и есть практика модулей, их часы уже входят в оценку курса. Модуль 16 (мультимодальность и голос) — факультатив, его можно пройти в любой момент после модуля 9. Если отстаёте, не пропускайте недели 6, 9 и 10 — golden set, red-team и гейт evals: без них остальное нечем доказать ни на собеседовании, ни на защите капстоуна. Проще урезать D до трейсинга, SLO и дашборда.</p>
+  <div class="viz" id="viz-gantt">
+    <p class="viz-title">Диаграмма Ганта: 20 недель</p>
+    <p class="viz-sub">Клик по неделе (столбцу или кнопке) показывает задачи, модули и критерий готовности. Ромбы — ключевые вехи для портфолио.</p>
+    <svg id="svg-gantt" viewBox="0 0 720 308" role="img" aria-label="Диаграмма Ганта: проекты и капстоун по неделям"></svg>
+    <div class="wk-btns" id="wk-btns"></div>
+    <div class="wk-info" id="wk-info" aria-live="polite"></div>
+  </div>
+
+  <h2 id="proj-rag" data-only="go">A · RAG по документации на Go + pgvector</h2>
+  <h2 id="proj-rag" data-only="java">A · RAG по документации на Java + pgvector</h2>
+  <div class="proj-meta"><span class="chip">недели 1–6, 14</span><span class="chip">модули 0–5, 11</span><span class="chip" data-only="go">Go, PostgreSQL, pgvector</span><span class="chip" data-only="java">Java 21, Spring Boot, PostgreSQL, pgvector</span></div>
+  <p><b>Цель.</b> Сервис, который индексирует документацию и отвечает на вопросы по ней с цитатами, стримингом и честным «не знаю», если в документации ответа нет. Всё на <span data-only="go">Go</span><span data-only="java">Java 21 и Spring Boot</span>, хранилище — Postgres с pgvector: одна база для чанков, метаданных, полнотекстового индекса и позже кэша. Проект растёт вместе с модулями 0–5: сначала каркас и вызов модели, потом промпты как код, потом retrieval. В неделю 14 к нему возвращаетесь с модулем 11: PDF, PII-редакция, дедупликация и версии корпуса.</p>
+  <div class="viz">
+    <p class="viz-title">Схема проекта A</p>
+    <svg id="svg-a" viewBox="0 0 720 300" role="img" aria-label="Схема RAG: ingest, эмбеддер, Postgres, API, retriever, LLM"></svg>
+  </div>
+  <h3>Структура репозитория</h3>
+  <pre class="tree" data-only="java"><code>docrag/                       # один Spring Boot jar, режимы — профили (ingest, server, позже mcp, agent)
+├── pom.xml                   # Java 21, Spring Boot 3.5, anthropic-java, pgvector-java, Flyway, Testcontainers
+├── src/main/java/dev/docrag/
+│   ├── DocragApplication.java
+│   ├── ingest/IngestRunner.java  # профиль ingest: загрузить корпус, порезать, заэмбеддить, записать
+│   ├── loader/               # Markdown/HTML, с недели 14 — PDF и таблицы
+│   ├── redact/               # PII-редакция перед индексом и логами (неделя 14)
+│   ├── chunker/              # структурный чанкинг
+│   ├── embed/                # клиент эмбеддингов: батчи, ретраи, rate limit
+│   ├── store/                # JdbcClient + pgvector-java, upsert чанков, hybrid search (SQL ниже)
+│   ├── retrieve/             # RRF, rerank, порог уверенности
+│   ├── generate/             # промпт, вызов Claude, стриминг, проверка цитат
+│   └── web/                  # контроллеры: /ask (SseEmitter), /search; фильтры (timeout, request id)
+├── src/main/resources/
+│   ├── application.yml       # /actuator/health вместо /healthz
+│   ├── db/migration/V1__chunks.sql  # Flyway
+│   └── prompts/answer.v1.txt # промпт версионирован как код
+├── src/test/java/dev/docrag/ # ChunkerTest (@ParameterizedTest), StoreIT (Testcontainers + pgvector)
+├── docker-compose.yml        # postgres с pgvector
+├── Makefile                  # make up / ingest / run / test / eval — обёртки над mvn и docker compose
+├── AGENTS.md                 # контекст и запреты для coding agent (модуль 4)
+└── README.md</code></pre>
+  <pre class="tree" data-only="go"><code>docrag/
+├── cmd/
+│   ├── ingest/main.go       # CLI: загрузить корпус, порезать, заэмбеддить, записать
+│   └── server/main.go        # HTTP API: /ask (SSE), /search, /healthz
+├── internal/
+│   ├── loader/               # Markdown/HTML, с недели 14 — PDF и таблицы
+│   ├── redact/               # PII-редакция перед индексом и логами (неделя 14)
+│   ├── chunker/              # структурный чанкинг + chunker_test.go (табличные тесты)
+│   ├── embed/                # клиент эмбеддингов: батчи, ретраи, rate limit
+│   ├── store/                # pgx, миграции, upsert чанков, hybrid search (SQL ниже)
+│   ├── retrieve/             # RRF, rerank, порог уверенности
+│   ├── generate/             # промпт, вызов Claude, стриминг, проверка цитат
+│   └── httpapi/              # хендлеры, SSE, middleware (timeout, request id)
+├── migrations/001_chunks.sql
+├── prompts/answer.v1.txt     # промпт версионирован как код
+├── docker-compose.yml        # postgres с pgvector
+├── Makefile                  # make up / ingest / run / test / eval
+├── AGENTS.md                 # контекст и запреты для coding agent (модуль 4)
+└── README.md</code></pre>
+
+  <h3>Ключевой код</h3>
+  <div class="tabs">
+    <div class="tab-panel" data-tab="Схема и гибридный поиск (SQL)"><pre><code class="lang-sql">CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE chunks (
+    id         bigserial PRIMARY KEY,
+    doc_url    text NOT NULL,
+    ord        int  NOT NULL,
+    heading    text NOT NULL DEFAULT '',
+    content    text NOT NULL,
+    tokens     int  NOT NULL,
+    embedding  vector(1024) NOT NULL,
+    tsv        tsvector GENERATED ALWAYS AS
+               (to_tsvector('simple', heading || ' ' || content)) STORED,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (doc_url, ord)
+);
+CREATE INDEX chunks_hnsw ON chunks USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+CREATE INDEX chunks_tsv ON chunks USING gin (tsv);
+
+-- Гибридный поиск: вектор и полнотекст параллельно, слияние RRF (k = 60).
+-- $1 — эмбеддинг запроса, $2 — текст запроса, $3 — сколько вернуть.
+WITH v AS (
+    SELECT id, row_number() OVER (ORDER BY embedding &lt;=&gt; $1) AS r
+    FROM chunks ORDER BY embedding &lt;=&gt; $1 LIMIT 40
+), k AS (
+    SELECT id, row_number() OVER (ORDER BY ts_rank_cd(tsv, q) DESC) AS r
+    FROM chunks, plainto_tsquery('simple', $2) q
+    WHERE tsv @@ q
+    ORDER BY ts_rank_cd(tsv, q) DESC LIMIT 40
+)
+SELECT c.id, c.doc_url, c.heading, c.content,
+       coalesce(1.0 / (60 + v.r), 0) + coalesce(1.0 / (60 + k.r), 0) AS score
+FROM v FULL OUTER JOIN k USING (id)
+JOIN chunks c USING (id)
+ORDER BY score DESC
+LIMIT $3;</code></pre></div>
+    <div class="tab-panel" data-tab="SSE-хендлер /ask (Java)" data-only="java"><pre><code class="lang-java">// POST /ask {"q": "..."} → text/event-stream: sources, delta*, done | error
+@RestController
+class AskController {
+    private static final Logger log = LoggerFactory.getLogger(AskController.class);
+
+    record AskRequest(@NotBlank @Size(max = 8192) String q) {}
+
+    private final Retriever retriever;
+    private final AnthropicClient llm;
+    private final String systemPrompt;
+    private final double minScore;
+
+    AskController(Retriever retriever, AnthropicClient llm, Prompts prompts,
+                  @Value("${docrag.min-score}") double minScore) {
+        this.retriever = retriever;
+        this.llm = llm;
+        this.systemPrompt = prompts.system();
+        this.minScore = minScore;
+    }
+
+    @PostMapping(path = "/ask", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    SseEmitter ask(@Valid @RequestBody AskRequest req, HttpServletResponse resp) {
+        List&lt;Hit&gt; hits;
+        try {
+            hits = retriever.search(req.q(), 8);
+        } catch (DataAccessException e) {
+            log.error("search", e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "search failed");
+        }
+        resp.setHeader("X-Accel-Buffering", "no"); // иначе nginx буферизует стрим
+        SseEmitter emitter = new SseEmitter(0L);   // таймаут стрима — наша забота, не Spring
+        Thread.startVirtualThread(() -&gt; stream(emitter, req.q(), hits));
+        return emitter;
+    }
+
+    private void stream(SseEmitter emitter, String q, List&lt;Hit&gt; hits) {
+        try {
+            emitter.send(SseEmitter.event().name("sources").data(hits));
+            if (hits.isEmpty() || hits.get(0).score() &lt; minScore) {
+                emitter.send(SseEmitter.event().name("done")
+                        .data(Map.of("answer", "В документации нет ответа на этот вопрос.")));
+                emitter.complete();
+                return; // не генерируем без источников
+            }
+            MessageCreateParams params = MessageCreateParams.builder()
+                    .model("claude-sonnet-5")
+                    .maxTokens(2048)
+                    .systemOfTextBlockParams(List.of(TextBlockParam.builder()
+                            .text(systemPrompt) // стабильный префикс → prompt caching
+                            .cacheControl(CacheControlEphemeral.builder().build())
+                            .build()))
+                    .addUserMessage(Prompts.build(q, hits))
+                    .build();
+            // Клиент ушёл → send() бросает IOException → try-with-resources закрывает стрим к модели.
+            try (StreamResponse&lt;RawMessageStreamEvent&gt; stream = llm.messages().createStreaming(params)) {
+                for (Iterator&lt;RawMessageStreamEvent&gt; it = stream.stream().iterator(); it.hasNext(); ) {
+                    Optional&lt;String&gt; text = it.next().contentBlockDelta()
+                            .flatMap(d -&gt; d.delta().text())
+                            .map(TextDelta::text);
+                    if (text.isPresent()) {
+                        emitter.send(SseEmitter.event().name("delta").data(Map.of("text", text.get())));
+                    }
+                }
+            }
+            emitter.send(SseEmitter.event().name("done").data(Map.of()));
+            emitter.complete();
+        } catch (IOException e) {
+            emitter.completeWithError(e); // клиент ушёл: писать некуда
+        } catch (RuntimeException e) {    // ошибка API, в том числе посреди стрима
+            log.error("llm stream", e);
+            try {
+                emitter.send(SseEmitter.event().name("error").data(Map.of("error", "generation failed")));
+                emitter.complete();
+            } catch (IOException ex) {
+                emitter.completeWithError(ex);
+            }
+        }
+    }
+}</code></pre></div>
+    <div class="tab-panel" data-tab="SSE-хендлер /ask (Go)" data-only="go"><pre><code class="lang-go">// POST /ask {"q": "..."} → text/event-stream: sources, delta*, done | error
+func (s *Server) handleAsk(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Q string `json:"q"` }
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8&lt;&lt;10)).Decode(&amp;req); err != nil || req.Q == "" {
+		http.Error(w, `{"error":"q required"}`, http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context() // клиент ушёл → ctx отменён → стрим к модели закрывается
+	hits, err := s.retriever.Search(ctx, req.Q, 8)
+	if err != nil {
+		s.log.ErrorContext(ctx, "search", "err", err)
+		http.Error(w, `{"error":"search failed"}`, http.StatusBadGateway)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no") // иначе nginx буферизует стрим
+	send := func(event string, v any) {
+		b, _ := json.Marshal(v)
+		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, b)
+		flusher.Flush()
+	}
+	send("sources", hits)
+	if len(hits) == 0 || hits[0].Score &lt; s.minScore {
+		send("done", map[string]string{"answer": "В документации нет ответа на этот вопрос."})
+		return // не генерируем без источников
+	}
+
+	stream := s.llm.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
+		Model:     "claude-sonnet-5",
+		MaxTokens: 2048,
+		System: []anthropic.TextBlockParam{{
+			Text:         s.systemPrompt, // стабильный префикс → prompt caching
+			CacheControl: anthropic.NewCacheControlEphemeralParam(),
+		}},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(buildPrompt(req.Q, hits))),
+		},
+	})
+	defer stream.Close()
+	for stream.Next() {
+		if d, ok := stream.Current().AsAny().(anthropic.ContentBlockDeltaEvent); ok {
+			if t, ok := d.Delta.AsAny().(anthropic.TextDelta); ok {
+				send("delta", map[string]string{"text": t.Text})
+			}
+		}
+	}
+	if err := stream.Err(); err != nil {
+		s.log.ErrorContext(ctx, "llm stream", "err", err)
+		send("error", map[string]string{"error": "generation failed"})
+		return
+	}
+	send("done", map[string]any{})
+}</code></pre></div>
+  </div>
+
+  <h3>Этапы и критерии готовности</h3>
+  <div class="task">
+    <div class="stage"><h4>Неделя 1 · Каркас и первый вызов</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-1"> docker-compose с Postgres + pgvector, миграция, <code>make up</code> поднимает всё с нуля</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-20"> CLI <code>ask "вопрос"</code> без retrieval: один вызов модели, в выводе токены входа и выхода и стоимость в $</label>
+    </div>
+    <div class="stage"><h4>Неделя 2 · LLM-клиент и SSE</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-21"> Клиент API за маленьким интерфейсом: таймаут, ретраи 429/529 с jitter, ключ из окружения, тест с фейковым провайдером</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-10"> SSE-эндпоинт <code>/ask</code>: delta → done, отмена запроса к модели по уходу клиента; событие sources появится с retrieval в неделю 5</label>
+    </div>
+    <div class="stage"><h4>Неделя 3 · Промпт как код</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-9"> Промпт в <code>prompts/</code> с версией и хэшем в логе: документы в XML-тегах, цитаты вида [n], разрешение сказать «не знаю»; проверен на фикстурных документах</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-12"> Prompt caching системного промпта, <code>cache_read_input_tokens</code> &gt; 0 со второго запроса</label>
+    </div>
+    <div class="stage"><h4>Неделя 4 · Ingest и coding agent</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-15"> Репозиторий настроен для coding agent: AGENTS.md, права, sandbox, проверка «готово, когда» (<a href="m04.html#coding-agents">модуль 4</a>, задание 4)</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-2"> Loader для Markdown/HTML: документы с URL и иерархией заголовков</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-3"> Структурный чанкер (по заголовкам, код-блоки и таблицы не режутся, 300–600 токенов) с <span data-only="go">табличными тестами</span><span data-only="java">параметризованными тестами JUnit 5</span></label>
+      <label class="check"><input type="checkbox" data-save="projects-a-4"> <code>make ingest</code> идемпотентен: повторный запуск не создаёт дублей (upsert по doc_url + ord, удаление исчезнувших)</label>
+    </div>
+    <div class="stage"><h4>Неделя 5 · Поиск и цитаты</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-5"> Клиент эмбеддингов с батчами, ретраями и лимитом конкурентности (<span data-only="go">errgroup + semaphore</span><span data-only="java">virtual threads + <code>Semaphore</code></span>)</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-6"> HNSW-индекс, векторный поиск p95 &lt; 50 мс на вашем корпусе</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-7"> Гибридный поиск с RRF; CLI <code>search "запрос"</code> печатает top-5 со скором</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-8"> 10 ручных вопросов: нужный документ в top-5 хотя бы у 7</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-11"> Retrieval подключён к <code>/ask</code>: событие sources, каждая цитата [n] ссылается на существующий источник, без источников — «не знаю» без генерации</label>
+    </div>
+    <div class="stage"><h4>Неделя 6 · Улучшения по evals (вместе с B)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-13"> Минимум 3 эксперимента (размер чанка, rerank, переписывание запроса) с таблицей метрик</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-14"> Оставлены только изменения, улучшившие метрику; остальные описаны в README как отвергнутые</label>
+    </div>
+    <div class="stage"><h4>Неделя 14 · Ingestion v2: PDF, PII, версии (<a href="m11.html">модуль 11</a>, задания 1–2)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-16"> PDF и таблицы парсятся с сохранением структуры; на каждый документ пишется отчёт парсинга, скан без OCR даёт предупреждение</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-17"> PII-редакция до индекса и до логов; синтетические канарейки не находятся ни в БД, ни в логах, ни в трейсах</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-18"> Дедупликация (точные и почти-дубли), версия корпуса в метаданных чанков; recall@5 на golden set не упал</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-19"> Срок хранения логов диалогов задан и исполняется кодом (удаление по сроку и по запросу)</label>
+    </div>
+    <div class="stage"><h4>Необязательные расширения</h4>
+      <label class="check"><input type="checkbox" data-save="projects-a-23"> Agentic-режим: модель сама решает, искать ли ещё, и сравнивается с обычным RAG на golden set (<a href="m05.html#agentic">модуль 5</a>, задание 5)</label>
+      <label class="check"><input type="checkbox" data-save="projects-a-22"> Голосовой интерфейс к <code>/ask</code> — задание 1 <a href="m16.html#practice">модуля 16</a> (факультатив)</label>
+    </div>
+  </div>
+  <h3>Метрики для README</h3>
+  <ul>
+    <li>Размер корпуса: документов, чанков, токенов; время и стоимость полной индексации.</li>
+    <li>Recall@5 и MRR на golden set (из проекта B) для baseline и лучшей конфигурации.</li>
+    <li>Латентность: поиск p50/p95, TTFT p50/p95, полный ответ p95.</li>
+    <li>Стоимость одного ответа (вход, выход, cache read) и проекция на 1 000 вопросов в день.</li>
+    <li>Доля ответов «не знаю» на вопросах без ответа в документации (должна быть высокой).</li>
+    <li>PII: полнота редакции на синтетическом наборе и ноль канареек в индексе и логах.</li>
+  </ul>
+  <h3>Что рассказывать на собеседовании</h3>
+  <ul>
+    <li>Почему pgvector, а не отдельная векторная БД: объём, транзакционность, фильтры и полнотекст в одном запросе; при каком объёме вы бы переехали.</li>
+    <li>Как выбрали размер чанка — экспериментом с цифрами, а не по статье.</li>
+    <li>Как устроен стриминг и что происходит при обрыве соединения (<span data-only="go">context, отмена запроса к модели</span><span data-only="java"><code>IOException</code> из <code>SseEmitter</code>, закрытие <code>StreamResponse</code> и отмена запроса к модели</span>).</li>
+    <li>Самая большая ошибка — обычно чанкинг или пропущенные документы при парсинге — и как её нашли.</li>
+  </ul>
+
+  <h2 id="proj-evals">B · Eval-набор и CI</h2>
+  <div class="proj-meta"><span class="chip">недели 6, 10</span><span class="chip">модули 4, 5, 8</span><span class="chip">Python, pandas, GitHub Actions</span></div>
+  <p><b>Цель.</b> Превратить «вроде работает» в числа. Golden set на 50–100 вопросов, метрики retrieval и генерации, LLM-judge, откалиброванный по вашей разметке, отчёт и гейт в CI, который блокирует PR с регрессией. Evals пишутся на Python, потому что там удобнее анализ (pandas, ноутбуки), и обращаются к <span data-only="go">Go</span><span data-only="java">Java</span>-сервису по HTTP — как настоящий внешний клиент. Проект идёт в два захода: в неделю 6, сразу после RAG, — golden set и метрики retrieval (модуль 5), чтобы эксперименты с поиском мерились числами; в неделю 10, с модулем 8, — judge, статистика и гейт в CI.</p>
+  <div class="viz">
+    <p class="viz-title">Схема проекта B</p>
+    <svg id="svg-b" viewBox="0 0 720 260" role="img" aria-label="Схема eval-пайплайна: golden set, runner, сервис, метрики, judge, отчёт, CI"></svg>
+  </div>
+  <h3>Структура</h3>
+  <pre class="tree"><code>docrag/evals/
+├── data/
+│   ├── golden.jsonl          # {id, question, expected_urls[], key_facts[], tags[], answerable}
+│   └── judge_labels.jsonl    # ваша ручная разметка для калибровки судьи
+├── evals/
+│   ├── run.py                # прогон вопросов через /search и /ask, кэш ответов по хэшу
+│   ├── retrieval.py          # recall@k, MRR, nDCG
+│   ├── judge.py              # faithfulness и correctness через Claude, structured output
+│   ├── calibrate.py          # согласие судьи с вашей разметкой (accuracy, κ, TPR/TNR)
+│   └── report.py             # Markdown-отчёт + сравнение с baseline
+├── baseline.json             # метрики main-ветки
+├── pyproject.toml
+└── ../.github/workflows/evals.yml</code></pre>
+  <h3>Ключевой код</h3>
+  <div class="tabs">
+    <div class="tab-panel" data-tab="Метрики и гейт (Python)"><pre><code class="lang-python">import json, sys, statistics, httpx
+
+def recall_at_k(got: list[str], expected: set[str], k: int) -&gt; float:
+    return len(set(got[:k]) &amp; expected) / len(expected) if expected else 1.0
+
+def mrr(got: list[str], expected: set[str]) -&gt; float:
+    return next((1 / (i + 1) for i, u in enumerate(got) if u in expected), 0.0)
+
+def run(base_url: str, path: str = "data/golden.jsonl") -&gt; dict:
+    rows = [json.loads(l) for l in open(path, encoding="utf-8")]
+    r5, rr = [], []
+    with httpx.Client(base_url=base_url, timeout=30) as c:
+        for row in rows:
+            if not row["answerable"]:
+                continue  # вопросы без ответа проверяются отдельно: ждём «не знаю»
+            resp = c.get("/search", params={"q": row["question"], "k": 10})
+            resp.raise_for_status()
+            urls = [h["doc_url"] for h in resp.json()]
+            exp = set(row["expected_urls"])
+            r5.append(recall_at_k(urls, exp, 5)); rr.append(mrr(urls, exp))
+    return {"recall@5": statistics.mean(r5), "mrr": statistics.mean(rr), "n": len(r5)}
+
+def gate(cur: dict, base: dict, tol: float = 0.02) -&gt; list[str]:
+    return [f"{m}: {cur[m]:.3f} &lt; {base[m]:.3f} - {tol}"
+            for m in ("recall@5", "mrr") if cur[m] &lt; base[m] - tol]
+
+if __name__ == "__main__":
+    cur = run(sys.argv[1])
+    fails = gate(cur, json.load(open("baseline.json")))
+    print(json.dumps(cur, indent=2))
+    if fails:
+        print("REGRESSION:\n" + "\n".join(fails)); sys.exit(1)</code></pre></div>
+    <div class="tab-panel" data-tab="CI (GitHub Actions)" data-only="java"><pre><code class="lang-yaml"># .github/workflows/evals.yml — smoke-набор на каждый PR, полный — ночью
+name: evals
+on:
+  pull_request:
+  schedule: [{ cron: "0 3 * * *" }]
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: "21", cache: maven }
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: make ingest-fixture   # маленький зафиксированный корпус, эмбеддинги из кэша
+      - run: make run-bg
+      - run: pip install -e evals
+      - run: python -m evals.run http://localhost:8080 ${{ github.event_name == 'schedule' &amp;&amp; '--full' || '--smoke' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}</code></pre></div>
+    <div class="tab-panel" data-tab="CI (GitHub Actions)" data-only="go"><pre><code class="lang-yaml"># .github/workflows/evals.yml — smoke-набор на каждый PR, полный — ночью
+name: evals
+on:
+  pull_request:
+  schedule: [{ cron: "0 3 * * *" }]
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with: { go-version: "1.23" }
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12" }
+      - run: make ingest-fixture   # маленький зафиксированный корпус, эмбеддинги из кэша
+      - run: make run-bg
+      - run: pip install -e evals
+      - run: python -m evals.run http://localhost:8080 ${{ github.event_name == 'schedule' &amp;&amp; '--full' || '--smoke' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}</code></pre></div>
+  </div>
+  <p class="muted">Полный workflow с baseline-артефактом из main, повторами и комментарием в PR — <a href="m08.html#ci">m08.html#ci</a>.</p>
+  <h3>Этапы и критерии готовности</h3>
+  <div class="task">
+    <div class="stage"><h4>Неделя 6 · Golden set и retrieval-метрики</h4>
+      <label class="check"><input type="checkbox" data-save="projects-b-1"> 50–100 вопросов: часть написана вручную, часть сгенерирована по документам и отфильтрована вами</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-2"> Теги: простой, многошаговый, точный термин/идентификатор, без ответа (≥ 10%)</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-3"> recall@5, MRR, nDCG@10 считаются одной командой; baseline зафиксирован</label>
+    </div>
+    <div class="stage"><h4>Неделя 10 · Judge, статистика, CI (модуль 8, задания 2–3)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-b-4"> Judge faithfulness (бинарный по утверждениям) и correctness по key_facts, structured output</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-5"> Judge откалиброван: κ ≥ 0,6 и TNR ≥ 0,8 на отложенной разметке (<a href="m08.html#judge">модуль 8</a>)</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-10"> Baseline-артефакт из main и bootstrap-гейт с комментарием в PR: pass rate с интервалом, парное сравнение с baseline (<a href="m08.html#ci">модуль 8</a>)</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-6"> Markdown-отчёт: метрики, дифф с baseline, 5 худших примеров с трейсами</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-7"> GitHub Actions: PR с намеренной регрессией (урезанный top-k) падает, PR без изменений поведения остаётся зелёным</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-8"> Таблица экспериментов: конфигурация → recall@5, faithfulness, p95, $ за 100 вопросов</label>
+      <label class="check"><input type="checkbox" data-save="projects-b-9"> Стоимость полного прогона evals известна и записана в README</label>
+    </div>
+  </div>
+  <h3>Метрики для README</h3>
+  <ul>
+    <li>Размер и состав golden set (сколько вопросов каждого типа, откуда взяты).</li>
+    <li>Таблица экспериментов с baseline и лучшей конфигурацией.</li>
+    <li>Согласие judge с человеческой разметкой (κ, TPR, TNR) и на скольких примерах оно измерено.</li>
+    <li>Стоимость и время прогона smoke и полного набора.</li>
+  </ul>
+  <h3>Что рассказывать на собеседовании</h3>
+  <ul>
+    <li>Откуда взялись вопросы и как вы избежали набора, «подогнанного» под систему.</li>
+    <li>Почему бинарные критерии судьи вместо шкалы 1–10 и как калибровали.</li>
+    <li>Пример, где метрика поймала регрессию, которую вы бы не заметили глазами.</li>
+    <li>Как сделали CI нефлаки: пороги с допуском, кэш ответов, smoke против полного прогона.</li>
+  </ul>
+
+  <h2 id="proj-mcp">C · Агент, MCP-сервер и безопасность</h2>
+  <div class="proj-meta"><span class="chip">недели 7–9, 11</span><span class="chip">модули 6, 7, 8</span><span class="chip" data-only="go">Go, MCP go-sdk, Claude Code/Desktop</span><span class="chip" data-only="java">Java, Spring AI MCP (MCP Java SDK), Claude Code/Desktop</span></div>
+  <p><b>Цель.</b> Дать агентам доступ к вашей системе через стандартный протокол. MCP-сервер на <span data-only="go">Go</span><span data-only="java">Java</span> с инструментами поиска по документации, чтения чанка целиком и чтения из БД (только чтение, allowlist запросов), подключённый к Claude Code и Claude Desktop. Плюс собственный агентный цикл на <span data-only="go">Go</span><span data-only="java">Java</span> поверх тех же инструментов — чтобы показать, что вы понимаете, что происходит внутри клиента, — с лимитами, компакцией и заметками для длинных задач. Затем, с модулем 7, агент получает threat model, guardrails и набор атак с метрикой ASR (attack success rate, доля успешных атак), а с модулем 8 — eval по траекториям.</p>
+  <div class="viz">
+    <p class="viz-title">Схема проекта C</p>
+    <svg id="svg-c" viewBox="0 0 720 260" role="img" aria-label="Схема MCP: клиенты, транспорт, MCP-сервер, инструменты, Postgres"></svg>
+  </div>
+  <h3>Структура</h3>
+  <pre class="tree" data-only="java"><code>docrag/src/main/java/dev/docrag/
+├── mcp/
+│   ├── McpConfig.java        # профиль mcp: stdio по умолчанию, Streamable HTTP — отдельным профилем
+│   └── DocTools.java         # @Tool: search_docs, get_chunk, db_query (read-only, allowlist)
+├── agent/                    # профиль agent: свой цикл tool use — лимиты, параллельные вызовы, is_error, компакция, заметки
+└── guard/                    # входные и выходные guardrails, фильтр ссылок (неделя 9)
+docrag/src/main/resources/application-mcp.yml
+docrag/src/test/java/dev/docrag/mcp/DocToolsTest.java  # вызовы через in-memory транспорт MCP SDK
+docrag/evals/agent_tasks.jsonl   # задачи для агента: целевое состояние, required/forbidden инструменты
+docrag/evals/attacks.jsonl       # red-team: прямые и непрямые инъекции, эксфильтрация, excessive agency</code></pre>
+  <pre class="tree" data-only="go"><code>docrag/
+├── cmd/
+│   ├── docs-mcp/main.go     # MCP-сервер: stdio по умолчанию, --http для Streamable HTTP
+│   └── agent/main.go         # свой агентный цикл: Claude + те же инструменты
+├── internal/
+│   ├── mcptools/             # search_docs, get_chunk, db_query (read-only, allowlist)
+│   │   └── tools_test.go     # вызовы через in-memory транспорт
+│   ├── agent/                # цикл tool use: лимиты, параллельные вызовы, is_error, компакция, заметки
+│   └── guard/                # входные и выходные guardrails, фильтр ссылок (неделя 9)
+├── evals/agent_tasks.jsonl   # задачи для агента: целевое состояние, required/forbidden инструменты
+└── evals/attacks.jsonl       # red-team: прямые и непрямые инъекции, эксфильтрация, excessive agency</code></pre>
+  <h3>Ключевой код</h3>
+  <pre data-only="java"><code class="lang-java">// mcp/McpConfig.java + mcp/DocTools.java — MCP-сервер на Spring AI
+// (стартер spring-ai-starter-mcp-server поверх официального MCP Java SDK).
+// application-mcp.yml:
+//   spring.ai.mcp.server: { enabled: true, name: docrag, version: 0.3.0, stdio: true }
+//   spring.main: { web-application-type: none, banner-mode: off }
+//   logging: { pattern.console: "", file.name: docs-mcp.log }
+//   # stdout занят JSON-RPC: баннер и любой лишний вывод ломают протокол
+package dev.docrag.mcp;
+
+import dev.docrag.retrieve.Hit;
+import dev.docrag.retrieve.Retriever;
+import java.util.List;
+import org.springframework.ai.tool.ToolCallbackProvider;
+import org.springframework.ai.tool.annotation.Tool;
+import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.ai.tool.method.MethodToolCallbackProvider;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+@Configuration
+@Profile("mcp")
+class McpConfig {
+    @Bean
+    ToolCallbackProvider docTools(DocTools tools) {
+        return MethodToolCallbackProvider.builder().toolObjects(tools).build();
+    }
+}
+
+@Component
+@Profile("mcp")
+class DocTools {
+    public record SearchOut(List&lt;Hit&gt; results) {}
+
+    private final Retriever retriever;
+
+    DocTools(Retriever retriever) {
+        this.retriever = retriever;
+    }
+
+    @Tool(name = "search_docs", description = "Гибридный поиск по документации. Возвращает фрагменты "
+            + "с URL и скором. Используй перед ответом на вопрос о документации.")
+    public SearchOut searchDocs(
+            @ToolParam(description = "вопрос или ключевые слова на естественном языке") String query,
+            @ToolParam(description = "сколько фрагментов вернуть, 1-10, по умолчанию 5", required = false) Integer k) {
+        int n = (k == null || k &lt;= 0 || k &gt; 10) ? 5 : k;
+        // Исключение не роняет сервер: клиент получит результат с isError.
+        return new SearchOut(retriever.search(query, n));
+    }
+}</code></pre>
+  <pre data-only="go"><code class="lang-go">// cmd/docs-mcp/main.go — MCP-сервер на официальном Go SDK.
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"example.com/docrag/internal/retrieve"
+)
+
+type SearchIn struct {
+	Query string `json:"query" jsonschema:"вопрос или ключевые слова на естественном языке"`
+	K     int    `json:"k,omitempty" jsonschema:"сколько фрагментов вернуть, 1-10, по умолчанию 5"`
+}
+
+type SearchOut struct {
+	Results []retrieve.Hit `json:"results"`
+}
+
+func main() {
+	log.SetOutput(os.Stderr) // stdout занят JSON-RPC: любой лишний вывод ломает протокол
+	r, err := retrieve.New(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	server := mcp.NewServer(&amp;mcp.Implementation{Name: "docrag", Version: "0.3.0"}, nil)
+
+	mcp.AddTool(server, &amp;mcp.Tool{
+		Name:        "search_docs",
+		Description: "Гибридный поиск по документации. Возвращает фрагменты с URL и скором. Используй перед ответом на вопрос о документации.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SearchIn) (*mcp.CallToolResult, SearchOut, error) {
+		if in.K &lt;= 0 || in.K &gt; 10 {
+			in.K = 5
+		}
+		hits, err := r.Search(ctx, in.Query, in.K)
+		if err != nil {
+			return nil, SearchOut{}, err // SDK вернёт клиенту результат с isError
+		}
+		return nil, SearchOut{Results: hits}, nil
+	})
+
+	if err := server.Run(context.Background(), &amp;mcp.StdioTransport{}); err != nil {
+		log.Fatal(err)
+	}
+}</code></pre>
+  <pre data-only="java"><code class="lang-bash"># Подключение к Claude Code (stdio): jar запускается как подпроцесс в профиле mcp
+mvn -q package -DskipTests
+claude mcp add docrag --env SPRING_DATASOURCE_URL=jdbc:postgresql://localhost/docrag \
+  -- java -jar target/docrag.jar --spring.profiles.active=mcp
+
+# Отладка без клиента: MCP Inspector показывает инструменты и позволяет вызвать их руками
+npx @modelcontextprotocol/inspector java -jar target/docrag.jar --spring.profiles.active=mcp</code></pre>
+  <pre data-only="go"><code class="lang-bash"># Подключение к Claude Code (stdio): бинарник запускается как подпроцесс
+go build -o bin/docs-mcp ./cmd/docs-mcp
+claude mcp add docrag --env DATABASE_URL=postgres://localhost/docrag -- ./bin/docs-mcp
+
+# Отладка без клиента: MCP Inspector показывает инструменты и позволяет вызвать их руками
+npx @modelcontextprotocol/inspector ./bin/docs-mcp</code></pre>
+  <p>Для Claude Desktop сервер прописывается в его конфигурационном файле в секции <code>mcpServers</code> (команда, аргументы, переменные окружения); путь к файлу и формат смотрите в документации MCP. Для удалённого доступа тот же сервер отдаётся через Streamable HTTP-<span data-only="go">хендлер из SDK</span><span data-only="java">транспорт стартера (WebMVC или WebFlux)</span> за вашей аутентификацией.</p>
+  <div class="callout danger"><span class="title">Инструмент чтения из БД</span>Не давайте агенту произвольный SQL, даже «только SELECT». Инструмент <code>db_query</code> принимает имя заранее описанного запроса и параметры (<code>{"name": "docs_updated_since", "args": {"days": 7}}</code>), выполняется под ролью только на чтение с <code>statement_timeout</code>. Если хочется свободного SQL — это разбор 3 из модуля 12 со всеми его защитами.</div>
+  <h3>Этапы и критерии готовности</h3>
+  <div class="task">
+    <div class="stage"><h4>Неделя 7 · MCP-сервер</h4>
+      <label class="check"><input type="checkbox" data-save="projects-c-1"> Инструменты <code>search_docs</code>, <code>get_chunk</code>, <code>db_query</code> (allowlist именованных запросов) с понятными описаниями</label>
+      <label class="check"><input type="checkbox" data-save="projects-c-2"> Тесты инструментов через in-memory транспорт SDK, ошибки возвращаются как isError, а не <span data-only="go">паника</span><span data-only="java">исключение, роняющее сервер</span></label>
+      <label class="check"><input type="checkbox" data-save="projects-c-3"> MCP Inspector показывает инструменты и успешно их вызывает</label>
+    </div>
+    <div class="stage"><h4>Неделя 8 · Клиенты, свой агент и длинные задачи</h4>
+      <label class="check"><input type="checkbox" data-save="projects-c-4"> Сервер подключён к Claude Code и Claude Desktop, записано короткое демо</label>
+      <label class="check"><input type="checkbox" data-save="projects-c-5"> Свой агентный цикл на <span data-only="go">Go</span><span data-only="java">Java</span>: параллельные tool_use, все tool_result одним сообщением, лимит шагов</label>
+      <label class="check"><input type="checkbox" data-save="projects-c-8"> Агент для длинной задачи (50+ шагов): компакция, заметки, RunSessions; eval по траектории — задание 4 модуля 6 (<a href="m06.html#practice">m06.html#practice</a>)</label>
+      <label class="check"><input type="checkbox" data-save="projects-c-7"> Режим Streamable HTTP за токеном авторизации</label>
+    </div>
+    <div class="stage"><h4>Неделя 9 · Guardrails и red-team (<a href="m07.html">модуль 7</a>)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-c-9"> Threat model агента: активы, границы доверия, ноги lethal trifecta, соответствие рискам OWASP Top 10 for LLM</label>
+      <label class="check"><input type="checkbox" data-save="projects-c-10"> Guardrails на входе и выходе: результаты инструментов как недоверенные данные, фильтр markdown-ссылок и картинок на внешние домены, лимиты стоимости на запрос</label>
+      <label class="check"><input type="checkbox" data-save="projects-c-11"> Набор из 20+ атак как eval-датасет (прямые и непрямые инъекции через документы и tool output, утечка system prompt, эксфильтрация); ASR до и после защит</label>
+    </div>
+    <div class="stage"><h4>Неделя 11 · Траектории и атаки в CI (модуль 8, задание 4)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-c-6"> 15–20 агентных задач оцениваются по спецификациям траекторий (<a href="m08.html#trajectories">m08.html#trajectories</a>): success, pass^k, tool precision/recall, шаги и стоимость</label>
+      <label class="check"><input type="checkbox" data-save="projects-c-12"> Набор атак в CI: новая успешная атака валит PR; агентные evals — отдельный ночной job</label>
+    </div>
+  </div>
+  <h3>Метрики для README</h3>
+  <ul>
+    <li>Success rate агента на наборе задач, среднее число шагов и токенов, стоимость задачи.</li>
+    <li>Сравнение: агент с инструментами против одного вызова RAG на тех же вопросах (качество, латентность, цена).</li>
+    <li>Латентность инструментов p95.</li>
+    <li>ASR до и после защит, по категориям атак, и сколько атак в наборе.</li>
+  </ul>
+  <h3>Что рассказывать на собеседовании</h3>
+  <ul>
+    <li>Почему MCP, а не просто HTTP API: один сервер для любого клиента, обнаружение инструментов, стандартные транспорты.</li>
+    <li>Как писали описания инструментов и как это повлияло на success rate (описание — это промпт).</li>
+    <li>Когда агент хуже простого RAG: цифры из сравнения.</li>
+    <li>Безопасность: allowlist запросов, роль только на чтение, почему никакого свободного SQL; какая нога lethal trifecta разорвана архитектурно и какой ASR остался.</li>
+  </ul>
+
+  <h2 id="proj-prod">D · Продакшнизация</h2>
+  <div class="proj-meta"><span class="chip">недели 11–13</span><span class="chip">модули 9, 10</span><span class="chip">OpenTelemetry, Redis, Grafana/Langfuse</span></div>
+  <p><b>Цель.</b> Превратить демо в сервис, за который не стыдно на дежурстве: видно каждый шаг каждого запроса, отказ провайдера не роняет продукт, повторяющиеся вопросы не стоят денег, стоимость видна на дашборде в реальном времени. С модулем 9 сюда же входят SLO с burn-rate алертами, фича-флаги для промптов и моделей с откатом без деплоя и мониторинг дрейфа; с модулем 10 — по желанию open-weight модель за тем же шлюзом.</p>
+  <div class="viz">
+    <p class="viz-title">Схема проекта D</p>
+    <svg id="svg-d" viewBox="0 0 720 280" role="img" aria-label="Схема продакшн-обвязки: API, кэш, gateway моделей с fallback, OpenTelemetry, дашборды"></svg>
+  </div>
+  <h3>Структура</h3>
+  <pre class="tree" data-only="java"><code>docrag/src/main/java/dev/docrag/
+├── llm/
+│   ├── LlmClient.java        # generate/stream поверх SDK, спаны и метрики
+│   ├── FallbackChain.java    # цепочка моделей, circuit breaker на каждую, fallback до первого байта
+│   ├── Breakers.java         # Resilience4j CircuitBreakerRegistry: свой breaker на модель
+│   ├── Router.java           # роутинг по сложности, порог во флаге
+│   └── Cost.java             # цены моделей, расчёт $ по usage
+├── flags/                    # реестр версий промптов и моделей, доли трафика, kill switch
+├── cache/
+│   ├── ExactCache.java       # Redis (Spring Data Redis): sha256(model + prompt version + нормализованный вопрос)
+│   └── SemanticCache.java    # pgvector по эмбеддингам вопросов, порог сходства, TTL
+├── telemetry/
+│   ├── OtelConfig.java       # OpenTelemetry SDK (или Micrometer Tracing + OTLP), экспорт в collector
+│   └── GenAi.java            # хелперы атрибутов gen_ai.*
+deploy/
+├── docker-compose.obs.yml    # otel-collector, Tempo/Jaeger, Prometheus, Grafana (или Langfuse)
+├── slo/                      # SLO, recording rules, multiwindow burn-rate алерты
+└── grafana/dashboards/cost.json</code></pre>
+  <pre class="tree" data-only="go"><code>docrag/internal/
+├── llm/
+│   ├── client.go             # интерфейс Generate/Stream поверх SDK
+│   ├── fallback.go           # цепочка моделей, circuit breaker на каждую, fallback до первого байта
+│   ├── breaker.go            # или sony/gobreaker
+│   ├── router.go             # роутинг по сложности, порог во флаге
+│   └── cost.go               # цены моделей, расчёт $ по usage
+├── flags/                    # реестр версий промптов и моделей, доли трафика, kill switch
+├── cache/
+│   ├── exact.go              # Redis: sha256(model + prompt version + нормализованный вопрос)
+│   └── semantic.go           # pgvector по эмбеддингам вопросов, порог сходства, TTL
+├── telemetry/
+│   ├── otel.go               # TracerProvider, MeterProvider, OTLP-экспорт
+│   └── genai.go              # хелперы атрибутов gen_ai.*
+deploy/
+├── docker-compose.obs.yml    # otel-collector, Tempo/Jaeger, Prometheus, Grafana (или Langfuse)
+├── slo/                      # SLO, recording rules, multiwindow burn-rate алерты
+└── grafana/dashboards/cost.json</code></pre>
+  <h3>Ключевой код</h3>
+  <pre data-only="java"><code class="lang-java">// Спан на вызов модели с атрибутами по семантическим конвенциям OpenTelemetry GenAI.
+public final class LlmClient {
+    private static final Tracer TRACER = GlobalOpenTelemetry.getTracer("docrag/llm");
+    private static final AttributeKey&lt;String&gt; MODEL = AttributeKey.stringKey("model");
+    private static final AttributeKey&lt;Boolean&gt; ERROR = AttributeKey.booleanKey("error");
+
+    private final AnthropicClient sdk;
+    private final DoubleHistogram latency; // meter.histogramBuilder("llm.latency").setUnit("s").build()
+    private final DoubleCounter costUsd;   // meter.counterBuilder("llm.cost").ofDoubles().setUnit("USD").build()
+    private final Prices prices;
+    private final String promptVersion;
+
+    // конструктор опущен
+
+    public Message generate(MessageCreateParams p) {
+        String model = p.model().asString();
+        Span span = TRACER.spanBuilder("chat " + model).setSpanKind(SpanKind.CLIENT).startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            span.setAttribute("gen_ai.operation.name", "chat");
+            span.setAttribute("gen_ai.provider.name", "anthropic");
+            span.setAttribute("gen_ai.request.model", model);
+            span.setAttribute("gen_ai.request.max_tokens", p.maxTokens());
+            span.setAttribute("app.prompt_version", promptVersion);
+
+            long start = System.nanoTime();
+            Message msg;
+            try {
+                msg = sdk.messages().create(p);
+            } catch (RuntimeException e) {
+                latency.record(secondsSince(start), Attributes.of(MODEL, model, ERROR, true));
+                span.recordException(e);
+                span.setStatus(StatusCode.ERROR, "llm call failed");
+                throw e;
+            }
+            latency.record(secondsSince(start), Attributes.of(MODEL, model, ERROR, false));
+
+            Usage u = msg.usage();
+            long cacheRead = u.cacheReadInputTokens().orElse(0L);
+            double usd = prices.cost(model, u.inputTokens(), cacheRead, u.outputTokens());
+            span.setAttribute("gen_ai.usage.input_tokens", u.inputTokens());
+            span.setAttribute("gen_ai.usage.output_tokens", u.outputTokens());
+            span.setAttribute("app.cache_read_input_tokens", cacheRead);
+            span.setAttribute(AttributeKey.stringArrayKey("gen_ai.response.finish_reasons"),
+                    List.of(msg.stopReason().map(StopReason::asString).orElse("")));
+            span.setAttribute("app.cost_usd", usd);
+            costUsd.add(usd, Attributes.of(MODEL, model));
+            return msg;
+        } finally {
+            span.end();
+        }
+    }
+
+    private static double secondsSince(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1e9;
+    }
+}</code></pre>
+  <pre data-only="go"><code class="lang-go">// Спан на вызов модели с атрибутами по семантическим конвенциям OpenTelemetry GenAI.
+var tracer = otel.Tracer("docrag/llm")
+
+func (c *Client) Generate(ctx context.Context, p anthropic.MessageNewParams) (*anthropic.Message, error) {
+	ctx, span := tracer.Start(ctx, "chat "+string(p.Model), trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("gen_ai.operation.name", "chat"),
+		attribute.String("gen_ai.provider.name", "anthropic"),
+		attribute.String("gen_ai.request.model", string(p.Model)),
+		attribute.Int64("gen_ai.request.max_tokens", p.MaxTokens),
+		attribute.String("app.prompt_version", c.promptVersion),
+	)
+	start := time.Now()
+	msg, err := c.sdk.Messages.New(ctx, p)
+	c.latency.Record(ctx, time.Since(start).Seconds(),
+		metric.WithAttributes(attribute.String("model", string(p.Model)), attribute.Bool("error", err != nil)))
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "llm call failed")
+		return nil, err
+	}
+	u := msg.Usage
+	usd := c.prices.Cost(p.Model, u.InputTokens, u.CacheReadInputTokens, u.OutputTokens)
+	span.SetAttributes(
+		attribute.Int64("gen_ai.usage.input_tokens", u.InputTokens),
+		attribute.Int64("gen_ai.usage.output_tokens", u.OutputTokens),
+		attribute.Int64("app.cache_read_input_tokens", u.CacheReadInputTokens),
+		attribute.StringSlice("gen_ai.response.finish_reasons", []string{string(msg.StopReason)}),
+		attribute.Float64("app.cost_usd", usd),
+	)
+	c.costUSD.Add(ctx, usd, metric.WithAttributes(attribute.String("model", string(p.Model))))
+	return msg, nil
+}</code></pre>
+  <p class="muted">Имена атрибутов <code>gen_ai.*</code> берите из текущей версии семантических конвенций OpenTelemetry для GenAI (они ещё развиваются); собственные поля помечайте префиксом приложения, как <code>app.cost_usd</code>.</p>
+  <h3>Этапы и критерии готовности</h3>
+  <div class="task">
+    <div class="stage"><h4>Неделя 11 · Трейсинг</h4>
+      <label class="check"><input type="checkbox" data-save="projects-d-1"> Спаны: HTTP → embed → search → rerank → llm, а у агента — <code>invoke_agent</code> → <code>chat</code> / <code>execute_tool</code>; с токенами, стоимостью и версией промпта</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-2"> Collector + Tempo/Jaeger в docker-compose; trace_id в логах и в ответе API (заголовок)</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-3"> По одному трейсу можно объяснить плохой ответ: какие чанки нашлись и что ушло в модель</label>
+    </div>
+    <div class="stage"><h4>Неделя 12 · Надёжность и шлюз</h4>
+      <label class="check"><input type="checkbox" data-save="projects-d-4"> Таймауты на каждый шаг, ретраи с jitter только для ретраябельных ошибок, общий бюджет ретраев</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-5"> Fallback между моделями (например, Sonnet 5 → Haiku 4.5) до первого байта стрима, circuit breaker</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-6"> Деградация: при недоступности всех моделей API отдаёт найденные фрагменты без генерации</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-7"> Chaos-тест: фейковый провайдер с 529 и обрывом стрима, поведение покрыто тестом</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-11"> Роутинг по сложности за флагом: промпт, модель и порог роутера — во фича-флаге, откат варианта без деплоя меньше чем за минуту (<a href="m09.html#gateway">шлюз</a> и <a href="m09.html#flags">флаги</a>, задание 5 модуля 9)</label>
+    </div>
+    <div class="stage"><h4>Неделя 13 · Кэш, SLO и дрейф</h4>
+      <label class="check"><input type="checkbox" data-save="projects-d-8"> Точный кэш в Redis с ключом, включающим модель и версию промпта; инвалидация при переиндексации</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-9"> Семантический кэш с порогом, подобранным на golden set (ноль неверных хитов на наборе)</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-10"> Дашборд (Grafana или Langfuse): $ в час по моделям, hit rate кэшей, TTFT p95, доля ошибок, доля fallback</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-12"> SLO и burn-rate алерты: error budget, multiwindow-алерты, fault injection будит дежурного (<a href="m09.html#slo">модуль 9</a>, задание 4)</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-13"> Дрейф: ежедневный прогон golden set против продакшн-конфигурации и сдвиг распределения запросов на дашборде</label>
+      <label class="check"><input type="checkbox" data-save="projects-d-14"> Опционально: open-weight модель на vLLM или Ollama за тем же шлюзом, сравнение на golden set по качеству, p95 и $ (<a href="m10.html">модуль 10</a>)</label>
+    </div>
+  </div>
+  <h3>Метрики для README</h3>
+  <ul>
+    <li>Скриншот дашборда и трейса.</li>
+    <li>Hit rate точного и семантического кэша на реалистичной нагрузке и сколько это экономит в $.</li>
+    <li>Поведение при отказе провайдера: доля успешных ответов и латентность в режиме fallback.</li>
+    <li>Нагрузочный тест (k6 или vegeta): RPS, p95, где узкое место.</li>
+    <li>SLO и остаток error budget; время отката версии промпта флагом.</li>
+  </ul>
+  <h3>Что рассказывать на собеседовании</h3>
+  <ul>
+    <li>Почему fallback только до первого байта и что видит пользователь в каждом режиме отказа.</li>
+    <li>Как выбрали порог семантического кэша и почему он опасен без eval.</li>
+    <li>Что показали трейсы: конкретный найденный через них баг.</li>
+    <li>Из чего складывается стоимость запроса и какой рычаг дал больше всего экономии.</li>
+    <li>Как дежурный узнаёт о деградации качества и откатывает её без автора системы.</li>
+  </ul>
+
+  <h2 id="readme">Финиш: README, демо, рассказ</h2>
+  <div class="proj-meta"><span class="chip">недели 15–17</span><span class="chip">модули 12, 13, 14</span><span class="chip">README, k6, ADR, рассказ</span></div>
+  <p>Недели 15–17 идут параллельно с модулями 12–14 и превращают систему в портфолио. С модулем 12 вы разбираете свою систему по скелету system design и упаковываете её; с модулем 13 записываете ключевые решения в ADR и пишете постмортем на реальный сбой; с модулем 14 готовите рассказ и проходите мок-интервью. Ревьюер портфолио тратит на репозиторий 2–5 минут, поэтому README — главный артефакт, а код — доказательство, что README не врёт.</p>
+  <pre data-only="java"><code class="lang-bash"># docrag — RAG по документации на Java + pgvector
+Одна строка: что это и для кого. GIF или ссылка на 2-минутное демо.
+
+## Результаты                (первым разделом — цифры)
+| конфигурация        | recall@5 | faithfulness | TTFT p95 | $/1K вопросов |
+| baseline (вектор)   | 0.62     | 0.84         | 1.4 s    | 4.10          |
+| гибрид + rerank     | 0.87     | 0.91         | 1.2 s    | 3.20          |
+Golden set: 96 вопросов (как собран), judge откалиброван на 120 ответах (κ = 0.71).
+
+## Архитектура              схема + 5 строк
+## Запуск                   make up &amp;&amp; make ingest &amp;&amp; make run
+## Ключевые решения         «X вместо Y, потому что…» × 5
+## Надёжность               режимы отказа и поведение, chaos-тест, SLO и откат флагом
+## Безопасность             threat model, ASR до и после защит, что разорвано архитектурно
+## Стоимость                из чего складывается запрос, кэш, проекция на нагрузку
+## Ограничения и дальше     честно</code></pre>
+  <pre data-only="go"><code class="lang-bash"># docrag — RAG по документации на Go + pgvector
+Одна строка: что это и для кого. GIF или ссылка на 2-минутное демо.
+
+## Результаты                (первым разделом — цифры)
+| конфигурация        | recall@5 | faithfulness | TTFT p95 | $/1K вопросов |
+| baseline (вектор)   | 0.62     | 0.84         | 1.4 s    | 4.10          |
+| гибрид + rerank     | 0.87     | 0.91         | 1.2 s    | 3.20          |
+Golden set: 96 вопросов (как собран), judge откалиброван на 120 ответах (κ = 0.71).
+
+## Архитектура              схема + 5 строк
+## Запуск                   make up &amp;&amp; make ingest &amp;&amp; make run
+## Ключевые решения         «X вместо Y, потому что…» × 5
+## Надёжность               режимы отказа и поведение, chaos-тест, SLO и откат флагом
+## Безопасность             threat model, ASR до и после защит, что разорвано архитектурно
+## Стоимость                из чего складывается запрос, кэш, проекция на нагрузку
+## Ограничения и дальше     честно</code></pre>
+  <div class="grid">
+    <div class="card"><h4>Демо</h4><p>Видео на 2 минуты: вопрос → стрим с цитатами → трейс в Tempo/Langfuse → тот же вопрос из Claude Code через MCP → дашборд стоимости. Без монтажа, но с подготовленным сценарием.</p></div>
+    <div class="card"><h4>Нагрузочный тест</h4><p>k6 или vegeta против <code>/search</code> и <code>/ask</code> с фейковым провайдером (чтобы не платить): где узкое место — пул соединений, эмбеддер, Postgres?</p></div>
+    <div class="card"><h4>Пост</h4><p>Статья на 1 500 слов «что я узнал, строя RAG на <span data-only="go">Go</span><span data-only="java">Java</span>»: 3 решения, 3 ошибки, таблица метрик. Это ещё и готовый рассказ для собеседования.</p></div>
+    <div class="card"><h4>Рассказ</h4><p>Прогоните проект через конструктор рассказа в <a href="m14.html#stories">модуле 14</a> и через вопросы deep dive из этого раздела.</p></div>
+  </div>
+  <h3>Этапы и критерии готовности</h3>
+  <div class="task">
+    <div class="stage"><h4>Неделя 15 · Упаковка и system design (<a href="m12.html">модуль 12</a>)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-f-1"> Репозиторий публичный, запуск с нуля проверен на чистой машине или в CI</label>
+      <label class="check"><input type="checkbox" data-save="projects-f-2"> README с таблицей метрик, решениями, стоимостью и ограничениями</label>
+      <label class="check"><input type="checkbox" data-save="projects-f-3"> Демо-видео записано</label>
+      <label class="check"><input type="checkbox" data-save="projects-f-4"> Нагрузочный тест проведён, узкое место найдено и описано</label>
+      <label class="check"><input type="checkbox" data-save="projects-f-7"> Своя система разобрана вслух по скелету модуля 12 за 45 минут: требования, расчёт стоимости, отказы, безопасность</label>
+    </div>
+    <div class="stage"><h4>Неделя 16 · Решения и инциденты (<a href="m13.html#adr">модуль 13</a>)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-f-8"> 3–4 ADR на уже принятые решения (pgvector, гибридный поиск, fallback, guardrails) с альтернативами и цифрами</label>
+      <label class="check"><input type="checkbox" data-save="projects-f-9"> Постмортем на сбой своего проекта, регрессия закрыта тестом в CI (<a href="m13.html#postmortem">модуль 13</a>, задание 2)</label>
+    </div>
+    <div class="stage"><h4>Неделя 17 · Рассказ и собеседование (<a href="m14.html">модуль 14</a>)</h4>
+      <label class="check"><input type="checkbox" data-save="projects-f-5"> Пост опубликован или готов к публикации</label>
+      <label class="check"><input type="checkbox" data-save="projects-f-6"> Рассказ проговорён вслух, конструктор в модуле 14 не показывает пропусков</label>
+      <label class="check"><input type="checkbox" data-save="projects-f-10"> Мок-интервью: deep dive по проекту с вопросами ниже, ответы с цифрами из вашей системы</label>
+    </div>
+  </div>
+
+  <h2 id="practice">Итоговое задание: переход в капстоун</h2>
+  <p>Проекты A–D и финиш дают портфолио, с которым уже можно идти на собеседование. Следующий шаг — <a href="m15.html">капстоун</a>: за три недели эта же система становится продакшн-агентом с действиями, приёмкой по метрикам и защитой design doc. Критерии приёмки и пороги — в <a href="m15.html#acceptance">модуле 15</a>; здесь — только подготовка к нему.</p>
+  <div class="task">
+    <h3>Система A–D готова стать основой капстоуна</h3>
+    <p><b>Критерии готовности:</b> текущие цифры системы зафиксированы как точка «до», предметная область капстоуна выбрана, а разрывы между тем, что есть, и критериями приёмки перечислены и оценены в часах.</p>
+    <label class="check"><input type="checkbox" data-save="projects-k-1"> Baseline зафиксирован тегом в git: отчёт evals, ASR red-team, стоимость и p95 из трейсов — это цифры «до» для капстоуна</label>
+    <label class="check"><input type="checkbox" data-save="projects-k-2"> Выбрана предметная область капстоуна, и для неё реально собрать вопросы и агентные задачи с проверяемым результатом</label>
+    <label class="check"><input type="checkbox" data-save="projects-k-3"> Таблица разрывов: для каждого критерия приёмки модуля 15 — что уже есть в A–D, чего не хватает, оценка в часах</label>
+    <label class="check"><input type="checkbox" data-save="projects-k-4"> ADR из недели 16 перенесены в черновик design doc капстоуна</label>
+  </div>
+
+  <h2 id="selfcheck">Самопроверка</h2>
+  <details class="q"><summary>Почему golden set появляется уже на неделе 6, хотя модуль Evals — восьмой?</summary><div class="a"><p>Все последующие изменения (rerank, чанкинг, fallback на другую модель, семантический кэш, guardrails) нужно оценивать числами. Для метрик retrieval хватает модуля 5, поэтому набор собирается сразу после RAG, а judge, статистика и гейт в CI добавляются с модулем 8. Без набора вы не знаете, помогло ли изменение, и на собеседовании нечего показать, кроме «стало лучше».</p></div></details>
+  <details class="q"><summary>Почему red-team встроен в проект C, а не вынесен в отдельный проект?</summary><div class="a"><p>Атаки направлены на конкретную систему: агента с инструментами и данными из A и C. Набор атак — это eval-датасет, который живёт рядом с агентными задачами и гоняется тем же CI. Отдельный проект создал бы иллюзию, что безопасность можно «доделать потом», а не проверять на каждом PR.</p></div></details>
+  <details class="q"><summary>Почему в проекте A достаточно pgvector?</summary><div class="a"><p>Корпус 500–5 000 страниц — это десятки тысяч чанков: HNSW в Postgres отвечает за миллисекунды, а фильтры, полнотекст, метаданные и кэш живут в одной транзакционной базе. Отдельная векторная БД добавила бы эксплуатационную сложность без выигрыша на таком объёме.</p></div></details>
+  <details class="q"><summary>Что сломается, если MCP-сервер на stdio пишет логи в stdout?</summary><div class="a"><p>stdout — канал JSON-RPC; любая лишняя строка будет воспринята клиентом как невалидное сообщение, и соединение сломается. Логи — только в stderr или файл.</p></div></details>
+  <details class="q"><summary>Почему инструмент db_query принимает имя запроса, а не SQL?</summary><div class="a"><p>Чтобы поверхность атаки была конечной: агент может выполнить только заранее описанные и проверенные запросы с параметрами. Свободный SQL требует AST-валидации, проверки прав, EXPLAIN-гейта и других защит, которые в этом проекте не нужны.</p></div></details>
+  <details class="q"><summary>Как подобрать порог семантического кэша?</summary><div class="a"><p>На golden set: для пар вопросов с одинаковым и разным правильным ответом посчитать сходство эмбеддингов и выбрать порог, при котором нет ни одного неверного хита (или их доля ниже допустимой). Затем мониторить в проде: выборочно проверять хиты судьёй.</p></div></details>
+  <details class="q"><summary>Какие атрибуты должны быть у спана вызова модели?</summary><div class="a"><p>Модель, провайдер, операция, max_tokens, токены входа/выхода и cache read, finish reason, стоимость, версия промпта; плюс статус ошибки. Этого достаточно, чтобы построить дашборд стоимости и найти причину плохого ответа.</p></div></details>
+
+  <h2 id="interview">Вопросы с собеседований по проектам</h2>
+  <details class="q interview"><summary>Расскажите про архитектуру вашего RAG-проекта. Почему такие решения?</summary><div class="a"><p>Три-пять компонентов с причинами: структурный чанкинг (эксперимент показал +N recall против фиксированного размера), pgvector (объём, фильтры и полнотекст в одном запросе; переезд при десятках миллионов векторов или высоком QPS), гибрид + RRF (идентификаторы в документации), порог уверенности (не генерируем без источников). Каждое решение — с альтернативой и цифрой.</p></div></details>
+  <details class="q interview"><summary>Как вы поняли, что система работает хорошо?</summary><div class="a"><p>Golden set из N вопросов с источниками: какие типы, как собран. Retrieval: recall@5 X → Y. Генерация: faithfulness Z по судье, откалиброванному на моей разметке (согласие W%). Гейт в CI. И ограничения: набор маленький, различия меньше 2–3 п.п. считаю шумом.</p></div></details>
+  <details class="q interview"><summary>Что было самой большой ошибкой в проекте?</summary><div class="a"><p>Конкретный случай с тем, как нашли и какие цифры до и после: например, чанкинг по символам рвал код-блоки, recall был 0.48; нашёл через разбор худших примеров в отчёте evals; структурный чанкинг дал 0.7+. Вывод: сначала смотреть на данные, потом тюнить модель.</p></div></details>
+  <details class="q interview"><summary>Что произойдёт с вашим сервисом, если Anthropic API недоступен 10 минут?</summary><div class="a"><p>Circuit breaker откроется после серии ошибок, запросы пойдут на резервную модель; если недоступно всё — API отдаёт найденные фрагменты с сообщением, что генерация временно недоступна. Кэш отвечает на популярные вопросы. Это покрыто chaos-тестом с фейковым провайдером; на дашборде видна доля fallback.</p></div></details>
+  <details class="q interview"><summary>Сколько стоит ваш сервис и как вы это посчитали?</summary><div class="a"><p>Из трейсов: средние токены входа/выхода и доля cache read, умножить на цены. Например, $0.003 за вопрос; при 1 000 вопросах в день ≈ $90 в месяц. Главные рычаги: prompt caching системного промпта, меньше чанков после rerank, кэш ответов. Индексация — разовая стоимость эмбеддингов.</p></div></details>
+  <details class="q interview"><summary>Зачем вам MCP, если есть HTTP API?</summary><div class="a"><p>HTTP API — для моего фронтенда и интеграций, которые я пишу сам. MCP — стандартный способ дать инструменты любому агентному клиенту (Claude Code, Desktop, IDE) без написания интеграции под каждый: клиент сам обнаруживает инструменты и их схемы. Цена — ещё один интерфейс для поддержки и отдельная модель безопасности (кто может подключиться, что могут инструменты).</p></div></details>
+  <details class="q interview"><summary>Как вы проверяли, что агента нельзя заставить слить данные через документ или результат инструмента?</summary><div class="a"><p>Начал с threat model: какие приватные данные видит агент, откуда приходит недоверенный текст, какие есть каналы наружу. Затем набор из N атак как eval-датасет: прямые и непрямые инъекции через документы корпуса и результаты инструментов, утечка system prompt, эксфильтрация через markdown-картинки. ASR до защит — X%, после — Y%, с интервалом. Главное снижение дала не инструкция в промпте, а архитектура: инструменты только на чтение и с правами пользователя, фильтр ссылок на внешние домены на выходе. Набор гоняется в CI, новая успешная атака валит PR.</p><p><b>На что смотрит интервьюер:</b> есть ли измерение, а не «добавили guardrails»; понимает ли кандидат, что промптом инъекцию не закрыть; какие ноги lethal trifecta разорваны детерминированно.</p></div></details>
+  <details class="q interview"><summary>Как бы вы масштабировали систему до 10M документов и 100 RPS?</summary><div class="a"><p>Посчитать: 10M документов ≈ 80M чанков, при d=1024 ≈ 330 ГБ float32 — не влезает в один Postgres; квантизация (halfvec/int8/binary в pgvector) или выделенная векторная БД с шардированием. Ingest — очередь и воркеры. Генерация: 100 RPS упираются в rate limits провайдера — тиры, несколько провайдеров через gateway, кэш. Эмбеддинг запросов — свой сервис рядом с поиском. Evals остаются тем же гейтом.</p></div></details>
+
+  <h2 id="links">Источники</h2>
+  <ul>
+    <li><a href="https://github.com/pgvector/pgvector" target="_blank" rel="noopener">pgvector</a> и <a href="https://github.com/pgvector/pgvector-go" target="_blank" rel="noopener" data-only="go">pgvector-go</a><a href="https://github.com/pgvector/pgvector-java" target="_blank" rel="noopener" data-only="java">pgvector-java</a></li>
+    <li data-only="go"><a href="https://github.com/anthropics/anthropic-sdk-go" target="_blank" rel="noopener">Anthropic Go SDK</a></li>
+    <li data-only="java"><a href="https://github.com/anthropics/anthropic-sdk-java" target="_blank" rel="noopener">Anthropic Java SDK</a> и <a href="https://docs.spring.io/spring-boot/reference/" target="_blank" rel="noopener">Spring Boot Reference</a></li>
+    <li><a href="https://docs.anthropic.com/" target="_blank" rel="noopener">Документация Anthropic</a>: streaming, prompt caching, structured outputs, batch</li>
+    <li><a href="https://github.com/modelcontextprotocol/go-sdk" target="_blank" rel="noopener" data-only="go">MCP Go SDK</a><span data-only="java"><a href="https://github.com/modelcontextprotocol/java-sdk" target="_blank" rel="noopener">MCP Java SDK</a>, <a href="https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html" target="_blank" rel="noopener">Spring AI MCP Server</a></span> и <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">спецификация MCP</a></li>
+    <li><a href="https://docs.anthropic.com/en/docs/claude-code/mcp" target="_blank" rel="noopener">Claude Code: подключение MCP-серверов</a></li>
+    <li><a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/" target="_blank" rel="noopener">OpenTelemetry: семантические конвенции GenAI</a> и <a href="https://opentelemetry.io/docs/languages/go/" target="_blank" rel="noopener" data-only="go">OpenTelemetry Go</a><a href="https://opentelemetry.io/docs/languages/java/" target="_blank" rel="noopener" data-only="java">OpenTelemetry Java</a></li>
+    <li><a href="https://langfuse.com/docs" target="_blank" rel="noopener">Langfuse: документация</a></li>
+    <li><a href="https://hamel.dev/blog/posts/evals/" target="_blank" rel="noopener">Hamel Husain: Your AI product needs evals</a></li>
+    <li><a href="https://www.anthropic.com/news/contextual-retrieval" target="_blank" rel="noopener">Anthropic: Contextual Retrieval</a></li>
+  </ul>
+</main>
+<script src="assets/course.js"></script>
+<script>
+(function () {
+  const J = Course.STACK === "java", T = (go, java) => J ? java : go;
+  /* ---------- Общий рендер схем: блоки + стрелки ---------- */
+  const COL = { a: "--accent", b: "--warn", c: "--violet", d: "--teal", x: "--muted" };
+  function diagram(svgId, nodes, edges) {
+    const svg = document.getElementById(svgId);
+    const mid = svgId + "-arr";
+    svg.innerHTML = `<defs><marker id="${mid}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--muted)"/></marker></defs>`;
+    const by = {};
+    nodes.forEach(n => { n.w = n.w || 150; n.h = n.h || 52; by[n.id] = n; });
+    const clip = (a, b) => {
+      const ax = a.x + a.w / 2, ay = a.y + a.h / 2, dx = b.x + b.w / 2 - ax, dy = b.y + b.h / 2 - ay;
+      const s = Math.min(dx ? (a.w / 2 + 4) / Math.abs(dx) : Infinity, dy ? (a.h / 2 + 4) / Math.abs(dy) : Infinity);
+      return [ax + dx * s, ay + dy * s];
+    };
+    edges.forEach(([f, t, label, dash]) => {
+      const [x1, y1] = clip(by[f], by[t]), [x2, y2] = clip(by[t], by[f]);
+      Course.svg("line", { x1, y1, x2, y2, stroke: "var(--muted)", "stroke-width": 1.4, "marker-end": `url(#${mid})`, "stroke-dasharray": dash ? "5 4" : "none" }, svg);
+      if (label) {
+        const tx = Course.svg("text", { x: (x1 + x2) / 2 + (Math.abs(y2 - y1) > Math.abs(x2 - x1) ? 6 : 0), y: (y1 + y2) / 2 - 5, "font-size": 11, fill: "var(--muted)", "text-anchor": Math.abs(y2 - y1) > Math.abs(x2 - x1) ? "start" : "middle" }, svg);
+        tx.textContent = label;
+      }
+    });
+    nodes.forEach(n => {
+      const c = COL[n.p || "x"];
+      Course.svg("rect", { x: n.x, y: n.y, width: n.w, height: n.h, rx: 8, fill: `var(${c}-soft, var(--bg-soft))`, stroke: `var(${c})`, "stroke-width": 1.5 }, svg);
+      const lines = n.label.split("\n");
+      lines.forEach((l, i) => {
+        const t = Course.svg("text", { x: n.x + n.w / 2, y: n.y + n.h / 2 + (i - (lines.length - 1) / 2) * 15 + 4, "text-anchor": "middle", "font-size": i ? 11.5 : 13, "font-weight": i ? 400 : 600, fill: i ? "var(--muted)" : "var(--text)" }, svg);
+        t.textContent = l;
+      });
+    });
+  }
+
+  diagram("svg-final", [
+    { id: "docs", x: 10, y: 20, label: "Документация\nMarkdown / HTML / Git", p: "a" },
+    { id: "ing", x: 190, y: 20, label: "Ingest\nчанкинг, PII, версии", p: "a" },
+    { id: "pg", x: 400, y: 20, w: 170, h: 70, label: "Postgres + pgvector\nчанки, HNSW, tsvector\nсемантический кэш", p: "a" },
+    { id: "redis", x: 190, y: 92, h: 42, label: "Redis · точный кэш", p: "d" },
+    { id: "user", x: 10, y: 150, label: "Пользователь\nUI / curl", p: "x" },
+    { id: "api", x: 190, y: 150, label: T("HTTP API (Go)", "HTTP API (Spring)") + "\n/ask SSE, /search", p: "a" },
+    { id: "ret", x: 400, y: 150, w: 170, label: "Retriever\nгибрид, RRF, rerank", p: "a" },
+    { id: "guard", x: 190, y: 206, w: 130, h: 36, label: "Guardrails, red-team\nвход / выход, ASR", p: "c" },
+    { id: "agent", x: 10, y: 250, label: "Claude Code /\nсвой агент, компакция", p: "c" },
+    { id: "mcp", x: 190, y: 250, label: T("MCP-сервер (Go)", "MCP-сервер (Java)") + "\nsearch, get_chunk, db", p: "c" },
+    { id: "gw", x: 400, y: 250, w: 170, label: "LLM-шлюз\nfallback, роутинг, флаги", p: "d" },
+    { id: "llm", x: 600, y: 250, w: 110, label: "Claude\nSonnet → Haiku", p: "x" },
+    { id: "evals", x: 10, y: 88, h: 42, label: "Evals (Python) · CI", p: "b" },
+    { id: "otel", x: 400, y: 340, w: 170, h: 48, label: "OpenTelemetry\nтрейсы, SLO, дрейф", p: "d" },
+    { id: "dash", x: 600, y: 340, w: 110, h: 48, label: "Grafana /\nLangfuse", p: "d" },
+  ], [
+    ["docs", "ing"], ["ing", "pg"], ["user", "api"], ["api", "ret"], ["ret", "pg"], ["api", "redis", "", true],
+    ["agent", "mcp"], ["mcp", "ret"], ["api", "gw"], ["gw", "llm"], ["evals", "api", "HTTP"], ["gw", "otel", "", true], ["otel", "dash"],
+  ]);
+
+  diagram("svg-a", [
+    { id: "docs", x: 20, y: 20, label: "Документы\nMarkdown / HTML", p: "x" },
+    { id: "ing", x: 200, y: 20, label: T("cmd/ingest", "профиль ingest") + "\nloader + chunker", p: "a" },
+    { id: "emb", x: 380, y: 20, label: "Эмбеддер\nбатчи, ретраи", p: "a" },
+    { id: "pg", x: 560, y: 20, w: 150, h: 120, label: "Postgres\npgvector HNSW\ntsvector GIN\nmetadata", p: "a" },
+    { id: "cli", x: 20, y: 130, label: "Клиент\ncurl -N / UI", p: "x" },
+    { id: "api", x: 200, y: 130, label: T("cmd/server", "AskController") + "\nPOST /ask (SSE)", p: "a" },
+    { id: "ret", x: 380, y: 130, label: "Retriever\nRRF + rerank + порог", p: "a" },
+    { id: "gen", x: 200, y: 235, label: "Generate\nпромпт, цитаты", p: "a" },
+    { id: "llm", x: 380, y: 235, label: "Claude Sonnet 5\nstreaming, cache", p: "x" },
+  ], [["docs", "ing"], ["ing", "emb"], ["emb", "pg"], ["cli", "api"], ["api", "ret"], ["ret", "pg", "SQL"], ["api", "gen"], ["gen", "llm"], ["gen", "cli", "SSE", true]]);
+
+  diagram("svg-b", [
+    { id: "gold", x: 20, y: 20, label: "golden.jsonl\n50–100 вопросов", p: "b" },
+    { id: "run", x: 200, y: 20, label: "run.py\nкэш по хэшу", p: "b" },
+    { id: "svc", x: 380, y: 20, label: "docrag API\n/search, /ask", p: "a" },
+    { id: "ret", x: 200, y: 110, label: "retrieval.py\nrecall@k, MRR, nDCG", p: "b" },
+    { id: "judge", x: 380, y: 110, label: "judge.py\nfaithfulness", p: "b" },
+    { id: "cal", x: 560, y: 110, label: "calibrate.py\nсогласие с вами", p: "b" },
+    { id: "rep", x: 200, y: 200, label: "report.py\nдифф с baseline", p: "b" },
+    { id: "ci", x: 380, y: 200, label: "GitHub Actions\nгейт PR", p: "b" },
+    { id: "lab", x: 560, y: 20, label: "judge_labels\nваша разметка", p: "x" },
+  ], [["gold", "run"], ["run", "svc"], ["run", "ret"], ["run", "judge"], ["lab", "cal"], ["judge", "cal"], ["ret", "rep"], ["judge", "rep"], ["rep", "ci"]]);
+
+  diagram("svg-c", [
+    { id: "cc", x: 20, y: 20, label: "Claude Code", p: "x" },
+    { id: "cd", x: 20, y: 100, label: "Claude Desktop", p: "x" },
+    { id: "ag", x: 20, y: 180, label: T("cmd/agent", "профиль agent") + "\nсвой цикл tool use", p: "c" },
+    { id: "tr", x: 210, y: 100, label: "Транспорт\nstdio / Streamable HTTP", p: "c" },
+    { id: "srv", x: 400, y: 100, label: T("docs-mcp\nmcp.NewServer", "профиль mcp\nSpring AI MCP"), p: "c" },
+    { id: "t1", x: 580, y: 20, w: 130, label: "search_docs", p: "c" },
+    { id: "t2", x: 580, y: 100, w: 130, label: "get_chunk", p: "c" },
+    { id: "t3", x: 580, y: 180, w: 130, label: "db_query\nallowlist, read-only", p: "c" },
+    { id: "pg", x: 400, y: 200, label: "Postgres\nретривер из A", p: "a" },
+  ], [["cc", "tr"], ["cd", "tr"], ["ag", "tr"], ["tr", "srv", "JSON-RPC"], ["srv", "t1"], ["srv", "t2"], ["srv", "t3"], ["t3", "pg"], ["srv", "pg"]]);
+
+  diagram("svg-d", [
+    { id: "api", x: 20, y: 20, label: "HTTP API\nтаймауты, request id", p: "a" },
+    { id: "ex", x: 200, y: 20, label: "Точный кэш\nRedis", p: "d" },
+    { id: "sem", x: 380, y: 20, label: "Семантический кэш\npgvector, порог", p: "d" },
+    { id: "fb", x: 200, y: 120, label: "Fallback-цепочка\nbreaker на модель", p: "d" },
+    { id: "m1", x: 380, y: 100, w: 140, h: 44, label: "Sonnet 5", p: "x" },
+    { id: "m2", x: 380, y: 160, w: 140, h: 44, label: "Haiku 4.5", p: "x" },
+    { id: "deg", x: 560, y: 130, label: "Деградация\nтолько источники", p: "x" },
+    { id: "otel", x: 20, y: 220, label: "OTel SDK\nспаны, метрики", p: "d" },
+    { id: "col", x: 200, y: 220, label: "Collector\nTempo, Prometheus", p: "d" },
+    { id: "dash", x: 380, y: 220, label: "Grafana / Langfuse\n$ / ч, hit rate, p95", p: "d" },
+  ], [["api", "ex"], ["ex", "sem", "miss"], ["api", "fb"], ["fb", "m1"], ["fb", "m2", "", true], ["fb", "deg", "", true], ["api", "otel", "", true], ["otel", "col"], ["col", "dash"]]);
+
+  /* ---------- Диаграмма Ганта ---------- */
+  COL.k = "--bad";
+  const ROWS = [
+    { p: "a", name: "A · RAG" }, { p: "b", name: "B · Evals" }, { p: "c", name: "C · Агент" }, { p: "d", name: "D · Прод" }, { p: "x", name: "Финиш" }, { p: "k", name: "Капстоун" },
+  ];
+  const WEEKS = [
+    { rows: ["a"], title: "Каркас и первый вызов", mods: T("0 · Go → AI", "0 · Java → AI") + ", 1 · Как работают LLM",
+      tasks: ["Репозиторий, Makefile, docker-compose с pgvector, миграция", "CLI ask без retrieval: ответ модели, токены и $"],
+      dod: "make up поднимает базу с нуля; CLI печатает ответ, токены входа и выхода и стоимость." },
+    { rows: ["a"], title: "LLM-клиент и SSE", mods: "2 · LLM API",
+      tasks: ["Клиент за интерфейсом: таймаут, ретраи 429/529 с jitter", T("POST /ask со стримингом SSE и отменой по context", "POST /ask со стримингом SSE (SseEmitter) и отменой запроса к модели"), "Тест с фейковым провайдером"],
+      dod: "curl -N показывает стрим; уход клиента отменяет запрос к модели; тесты без сети зелёные." },
+    { rows: ["a"], title: "Промпт как код", mods: "2 · prompt caching, 3 · Промпты",
+      tasks: ["Шаблон в prompts/ с версией и хэшем в логе", "Документы в XML-тегах, цитаты [n], «не знаю»", "Prompt caching системного промпта"],
+      dod: "Версия промпта видна в логе каждого вызова; cache_read_input_tokens > 0 со второго запроса." },
+    { rows: ["a"], title: "Ingest и coding agent", mods: "4 · Инструменты (coding agents), 5 · RAG (чанкинг)",
+      tasks: ["AGENTS.md, права и sandbox для coding agent (модуль 4, задание 4)", "Loader Markdown/HTML с иерархией заголовков", T("Структурный чанкер с табличными тестами", "Структурный чанкер с параметризованными тестами"), "Идемпотентный ingest (upsert, удаление исчезнувших)"],
+      dod: "make ingest загружает корпус с нуля, повторный запуск не создаёт дублей; запреты агента срабатывают на уровне инструмента." },
+    { rows: ["a"], title: "Поиск и цитаты", mods: "5 · RAG (эмбеддинги, HNSW, гибрид)", milestone: "Первое демо",
+      tasks: [T("Клиент эмбеддингов: батчи, ретраи, errgroup + semaphore", "Клиент эмбеддингов: батчи, ретраи, virtual threads + Semaphore"), "HNSW и tsvector + RRF в одном SQL", "CLI search и 10 ручных проверок", "Retrieval в /ask: sources, проверка цитат"],
+      dod: "Нужный документ в top-5 у 7 из 10 ручных вопросов; каждая цитата валидна; без источников — «не знаю»." },
+    { rows: ["a", "b"], title: "Golden set и эксперименты", mods: "5 · rerank, метрики RAG; 4 · pandas",
+      tasks: ["50–100 вопросов: ручные + синтетические с фильтрацией, ≥ 10% без ответа", "recall@5, MRR, nDCG@10 и baseline", "Эксперименты: размер чанка, rerank, query rewriting"],
+      dod: "Одна команда печатает метрики; таблица из ≥ 3 экспериментов в README; лучшая конфигурация — новый baseline." },
+    { rows: ["c"], title: T("MCP-сервер на Go", "MCP-сервер на Java"), mods: "6 · Агенты и MCP",
+      tasks: ["search_docs, get_chunk, db_query (allowlist)", "Описания инструментов как промпты", "Тесты через in-memory транспорт", "Проверка в MCP Inspector"],
+      dod: "Inspector показывает и вызывает все инструменты; ошибки возвращаются как isError." },
+    { rows: ["c"], title: "Свой агент и длинные задачи", mods: "6 · агентный цикл, context engineering, длинные задачи", milestone: "Агент + MCP",
+      tasks: ["Подключение к Claude Code и Desktop, демо", "Свой цикл tool use с параллельными вызовами и лимитами", "Длинная задача на 50+ шагов: компакция, заметки, RunSessions (модуль 6, задание 4)", "Streamable HTTP за токеном"],
+      dod: "Видео: вопрос из Claude Code через ваш MCP-сервер; таблица «без компакции / с компакцией / с заметками»." },
+    { rows: ["c"], title: "Guardrails и red-team", mods: "7 · Безопасность и guardrails",
+      tasks: ["Threat model и соответствие OWASP Top 10 for LLM", "Guardrails на входе и выходе, фильтр внешних ссылок", "20+ атак как eval-датасет, ASR до и после"],
+      dod: "ASR после защит измерен с интервалом; хотя бы одна нога lethal trifecta разорвана архитектурно." },
+    { rows: ["b"], title: "Judge, статистика, CI", mods: "8 · Evals (judge, κ, bootstrap, CI)", milestone: "Evals в CI",
+      tasks: ["Judge faithfulness/correctness со structured output", "Калибровка: κ ≥ 0,6 и TNR ≥ 0,8 на отложенной разметке", "Baseline из main, bootstrap-гейт, комментарий в PR", "Таблица экспериментов с faithfulness и $"],
+      dod: "PR с намеренной регрессией падает в CI, PR без изменений поведения зелёный три раза подряд." },
+    { rows: ["c", "d"], title: "Траектории и трейсинг", mods: "8 · траектории; 9 · Продакшн (observability)",
+      tasks: ["15–20 агентных задач по спецификациям: success, pass^k, tool precision/recall", "Набор атак в CI, агентные evals — ночной job", "Спаны HTTP → embed → search → llm и invoke_agent → chat / execute_tool", "Collector + Tempo/Jaeger, trace_id в логах и заголовке"],
+      dod: "По одному трейсу видно каждый шаг агента, его токены и $; новая успешная атака валит PR." },
+    { rows: ["d"], title: "Надёжность и шлюз", mods: "9 · ретраи, fallback, шлюз, флаги; 10 · начало",
+      tasks: ["Таймауты, ретраи с jitter, бюджет ретраев", "Fallback Sonnet → Haiku до первого байта, circuit breaker", "Chaos-тест с фейковым провайдером", "Роутинг по сложности и промпт за фича-флагом"],
+      dod: "При «упавшем» провайдере API отдаёт ответ резервной моделью или источники; откат варианта флагом меньше чем за минуту." },
+    { rows: ["d"], title: "Кэш, SLO, дрейф", mods: "9 · кэши, SLO, дрейф; 10 · Свои модели", milestone: "Прод-готово",
+      tasks: ["Точный и семантический кэш, порог по golden set", "SLO, error budget, multiwindow burn-rate алерты", "Ежедневный прогон golden set против прода, дрейф запросов", "Дашборд: $ / ч, hit rate, TTFT p95, доля fallback", "Опционально: open-weight модель за шлюзом"],
+      dod: "Fault injection будит алерт; дашборд показывает стоимость и остаток error budget; ноль неверных хитов кэша." },
+    { rows: ["a"], title: "Ingestion v2: PDF, PII, версии", mods: "11 · Данные и governance",
+      tasks: ["PDF и таблицы с отчётом парсинга", "PII-редакция до индекса и логов, канарейки", "Дедупликация и версия корпуса", "Срок хранения логов диалогов"],
+      dod: "Канарейки не находятся ни в БД, ни в логах, ни в трейсах; recall@5 не упал." },
+    { rows: ["x"], title: "Упаковка и system design", mods: "12 · AI system design", milestone: "Портфолио",
+      tasks: ["README с таблицей метрик первым разделом", "Демо-видео 2 минуты", "Нагрузочный тест k6/vegeta", "Своя система по скелету модуля 12 вслух"],
+      dod: "Репозиторий публичный, запуск с нуля работает, узкое место под нагрузкой найдено." },
+    { rows: ["x"], title: "Решения и инциденты", mods: "13 · Senior-практики",
+      tasks: ["3–4 ADR на принятые решения с альтернативами и цифрами", "Постмортем на сбой своего проекта, регрессия в CI"],
+      dod: "ADR лежат в docs/adr/, у постмортема есть действия с владельцами и тест, который ловит регрессию." },
+    { rows: ["x"], title: "Рассказ и собеседование", mods: "14 · Подготовка к собеседованию", milestone: "Собеседование",
+      tasks: [T("Пост «что я узнал, строя RAG на Go»", "Пост «что я узнал, строя RAG на Java»"), "Рассказ через конструктор модуля 14", "Мок-интервью: deep dive по проекту"],
+      dod: "Рассказ на 3 минуты готов, на 10 «почему» есть ответы с цифрами." },
+    { rows: ["k"], title: "Капстоун: скелет и design doc", mods: "15 · Капстоун",
+      tasks: ["Design doc v0 и черновики ADR, design review", "Агент поверх A и C: RAG-first и агентный маршруты, лимиты", "Write-инструмент с подтверждением, спаны всех шагов"],
+      dod: "Вопрос и действие видны в трейсе целиком; ревью черновика проведено." },
+    { rows: ["k"], title: "Капстоун: качество и безопасность", mods: "15 · Капстоун",
+      tasks: ["Golden set 150+, агентные задачи, hold-out", "Длинная задача в своей области", "80+ атак, guardrails, PII-канарейки", "CLI acceptance в CI"],
+      dod: "Гейт приёмки запускается на каждом PR; понятно, какие критерии красные и почему." },
+    { rows: ["k"], title: "Капстоун: эксплуатация и защита", mods: "15 · Капстоун", milestone: "Защита",
+      tasks: ["Нагрузочный тест, стоимость из трейсов, SLO и алерты", "Учения по откату флагом", "Финальный design doc, репетиция демо, защита"],
+      dod: "Все автоматические критерии модуля 15 зелёные, капстоун защищён." },
+  ];
+  const svg = document.getElementById("svg-gantt"), info = document.getElementById("wk-info"), btns = document.getElementById("wk-btns");
+  const X0 = 90, CW = (720 - X0 - 10) / WEEKS.length, Y0 = 30, RH = 36;
+  let sel = 0;
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function draw() {
+    svg.innerHTML = "";
+    const hl = Course.svg("rect", { x: X0 + sel * CW, y: 8, width: CW, height: Y0 + ROWS.length * RH - 2, fill: "var(--accent-soft)", rx: 4 }, svg);
+    hl.style.transition = "x .2s";
+    for (let w = 0; w < WEEKS.length; w++) {
+      const t = Course.svg("text", { x: X0 + w * CW + CW / 2, y: 22, "text-anchor": "middle", "font-size": 12, "font-weight": w === sel ? 700 : 400, fill: w === sel ? "var(--accent)" : "var(--muted)" }, svg);
+      t.textContent = w + 1;
+      Course.svg("line", { x1: X0 + w * CW, x2: X0 + w * CW, y1: 28, y2: Y0 + ROWS.length * RH, stroke: "var(--border)" }, svg);
+    }
+    ROWS.forEach((r, i) => {
+      const y = Y0 + i * RH;
+      const t = Course.svg("text", { x: 4, y: y + RH / 2 + 4, "font-size": 12.5, "font-weight": 600 }, svg);
+      t.textContent = r.name;
+      WEEKS.forEach((w, j) => {
+        if (!w.rows.includes(r.p)) return;
+        const c = COL[r.p];
+        Course.svg("rect", { x: X0 + j * CW + 2, y: y + 7, width: CW - 4, height: RH - 14, rx: 5, fill: `var(${c})`, "fill-opacity": j === sel ? 0.95 : 0.55 }, svg);
+      });
+    });
+    WEEKS.forEach((w, j) => {
+      if (!w.milestone) return;
+      const cx = X0 + (j + 1) * CW, cy = Y0 + ROWS.length * RH + 16;
+      Course.svg("path", { d: `M${cx},${cy - 7} L${cx + 7},${cy} L${cx},${cy + 7} L${cx - 7},${cy} z`, fill: "var(--ok)" }, svg);
+      const k = WEEKS.slice(0, j).filter(x => x.milestone).length; // чередуем строки подписей
+      const t = Course.svg("text", { x: cx > 680 ? 716 : cx, y: cy + 22 + (k % 2) * 15, "font-size": 11, "text-anchor": cx > 680 ? "end" : "middle", fill: "var(--muted)" }, svg);
+      t.textContent = w.milestone;
+    });
+    for (let w = 0; w < WEEKS.length; w++) { // прозрачные зоны клика по столбцам
+      const hit = Course.svg("rect", { x: X0 + w * CW, y: 8, width: CW, height: Y0 + ROWS.length * RH, fill: "transparent", style: "cursor:pointer" }, svg);
+      hit.addEventListener("click", () => pick(w));
+    }
+  }
+  function pick(w) {
+    sel = w; draw();
+    [...btns.children].forEach((b, i) => b.classList.toggle("sel", i === w));
+    const d = WEEKS[w];
+    info.innerHTML = `<h4>Неделя ${w + 1} · ${esc(d.title)}</h4>
+      <p class="muted" style="margin:0 0 4px">Проект: ${d.rows.map(p => ROWS.find(r => r.p === p).name).join(", ")} · Модули: ${esc(d.mods)}${d.milestone ? " · ◆ " + esc(d.milestone) : ""}</p>
+      <ul>${d.tasks.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
+      <div class="dod"><b>Готово, когда:</b> ${esc(d.dod)}</div>`;
+  }
+  WEEKS.forEach((w, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = "Н" + (i + 1); b.title = w.title;
+    b.onclick = () => pick(i); btns.append(b);
+  });
+  pick(0);
+})();
+</script>
+</body>
+</html>
